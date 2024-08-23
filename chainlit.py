@@ -1,8 +1,8 @@
 import os
 from dotenv import load_dotenv, find_dotenv
 import chainlit as cl
-from langchain_huggingface import HuggingFaceEndpoint
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import Qdrant
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import ConversationalRetrievalChain
@@ -12,21 +12,16 @@ from qdrant_client import QdrantClient
 # Load environment variables
 load_dotenv(find_dotenv())
 
-# Hugging Face setup
-hf_api_token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
-if not hf_api_token:
-    raise ValueError("HUGGINGFACEHUB_API_TOKEN not found in environment variables.")
+# OpenAI setup
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY not found in environment variables.")
 
-repo_id = "google/flan-t5-base"  # You can change this to your preferred model
-llm = HuggingFaceEndpoint(
-    repo_id=repo_id, 
-    temperature=0.5,
-    max_length=512,
-    huggingfacehub_api_token=hf_api_token
-)
+# Initialize ChatOpenAI with GPT-4
+llm = ChatOpenAI(model_name="gpt-4", temperature=0.7, openai_api_key=openai_api_key)
 
 # Qdrant setup
-qdrant_url = os.getenv("QDRANT_URL", "").split("#")[0].strip()  # Remove any comments and whitespace
+qdrant_url = os.getenv("QDRANT_URL", "").split("#")[0].strip()
 if not qdrant_url:
     raise ValueError("QDRANT_URL not found in environment variables. Please set it to the correct URL of your Qdrant server.")
 
@@ -39,8 +34,8 @@ try:
 except Exception as e:
     raise ValueError(f"Failed to connect to Qdrant at {qdrant_url}. Error: {str(e)}")
 
-# Initialize embeddings
-embeddings = HuggingFaceEmbeddings()
+# Initialize embeddings with OpenAI
+embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
 
 # Global variable to store the vector store
 vector_store = None
@@ -90,6 +85,7 @@ async def process_file(file):
             embedding=embeddings,
             url=qdrant_url,
             collection_name=qdrant_collection_name,
+            force_recreate=True  # Add this line to force recreation of the collection
         )
 
         # Create the conversational chain
